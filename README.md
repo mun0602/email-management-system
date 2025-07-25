@@ -1,1 +1,1 @@
-# email-management-system
+# mail-management-system
