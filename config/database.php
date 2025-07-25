@@ -4,6 +4,14 @@
  * Cấu hình kết nối cơ sở dữ liệu
  */
 
+// Check if we're in demo mode (no MySQL available)
+$isDemoMode = !function_exists('mysql_connect') && !extension_loaded('pdo_mysql');
+
+if ($isDemoMode || getenv('DEMO_MODE') === 'true') {
+    require_once __DIR__ . '/demo.php';
+    return;
+}
+
 class Database {
     private $host = 'localhost';
     private $dbname = 'email_management';
@@ -28,7 +36,9 @@ class Database {
         try {
             $this->pdo = new PDO($dsn, $this->username, $this->password, $options);
         } catch (PDOException $e) {
-            throw new PDOException($e->getMessage(), (int)$e->getCode());
+            // Fallback to demo mode if database connection fails
+            require_once __DIR__ . '/demo.php';
+            return;
         }
     }
 
@@ -57,7 +67,11 @@ class Database {
     }
 }
 
-// Tạo instance global
-$database = new Database();
-$pdo = $database->getConnection();
+// Try to create database instance, fallback to demo if fails
+try {
+    $database = new Database();
+    $pdo = $database->getConnection();
+} catch (Exception $e) {
+    require_once __DIR__ . '/demo.php';
+}
 ?>

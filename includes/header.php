@@ -12,7 +12,7 @@ $user = getCurrentUser();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.umd.js" rel="stylesheet">
-    <link href="/assets/css/style.css" rel="stylesheet">
+    <link href="../assets/css/style.css" rel="stylesheet">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -31,44 +31,44 @@ $user = getCurrentUser();
                     <?php if (isAdmin()): ?>
                         <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'dashboard' ? 'active' : '' ?>" 
-                               href="/admin/index.php">
+                               href="../admin/index.php">
                                 <i class="bi bi-speedometer2"></i> Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'users' ? 'active' : '' ?>" 
-                               href="/admin/users.php">
+                               href="../admin/users.php">
                                 <i class="bi bi-people"></i> Thành viên
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'emails' ? 'active' : '' ?>" 
-                               href="/admin/emails.php">
+                               href="../admin/emails.php">
                                 <i class="bi bi-envelope"></i> Email
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'statistics' ? 'active' : '' ?>" 
-                               href="/admin/statistics.php">
+                               href="../admin/statistics.php">
                                 <i class="bi bi-graph-up"></i> Thống kê
                             </a>
                         </li>
                     <?php else: ?>
                         <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'dashboard' ? 'active' : '' ?>" 
-                               href="/member/index.php">
+                               href="../member/index.php">
                                 <i class="bi bi-house"></i> Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'get-email' ? 'active' : '' ?>" 
-                               href="/member/get-email.php">
+                               href="../member/get-email.php">
                                 <i class="bi bi-download"></i> Lấy Email
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'history' ? 'active' : '' ?>" 
-                               href="/member/history.php">
+                               href="../member/history.php">
                                 <i class="bi bi-clock-history"></i> Lịch sử
                             </a>
                         </li>
@@ -86,7 +86,7 @@ $user = getCurrentUser();
                         </a>
                         <ul class="dropdown-menu">
                             <li>
-                                <a class="dropdown-item" href="/auth/logout.php">
+                                <a class="dropdown-item" href="../auth/logout.php">
                                     <i class="bi bi-box-arrow-right"></i>
                                     Đăng xuất
                                 </a>
