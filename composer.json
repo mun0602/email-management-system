@@ -1,0 +1,11 @@
+{
+    "name": "your-username/mail-management-system",
+    "description": "Mail Management System",
+    "type": "project",
+    "require": {
+        "php": ">=7.4"
+    },
+    "scripts": {
+        "start": "php -S 0.0.0.0:$PORT index.php"
+    }
+}
