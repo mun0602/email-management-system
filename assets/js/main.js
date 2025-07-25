@@ -121,6 +121,84 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Share form submission
+    const shareForm = document.getElementById('shareForm');
+    if (shareForm) {
+        shareForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const selectedMails = [];
+            document.querySelectorAll('.mail-checkbox:checked').forEach(checkbox => {
+                selectedMails.push(checkbox.value);
+            });
+            
+            if (selectedMails.length === 0) {
+                alert('Vui lòng chọn ít nhất một mail để chia sẻ!');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('action', 'create_share');
+            formData.append('password', document.getElementById('share_password').value);
+            
+            // Append mail IDs as individual form fields
+            selectedMails.forEach((mailId, index) => {
+                formData.append(`mail_ids[${index}]`, mailId);
+            });
+            
+            fetch('/shared/create.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('shareLink').value = data.share_url;
+                    // Close share modal and open share link modal
+                    if (typeof bootstrap !== 'undefined') {
+                        const shareModal = bootstrap.Modal.getInstance(document.getElementById('shareModal'));
+                        const shareLinkModal = new bootstrap.Modal(document.getElementById('shareLinkModal'));
+                        if (shareModal) shareModal.hide();
+                        shareLinkModal.show();
+                    }
+                } else {
+                    alert('Có lỗi xảy ra: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi tạo link chia sẻ');
+            });
+        });
+    }
+    
+    // Copy share link
+    const copyShareLinkBtn = document.getElementById('copyShareLink');
+    if (copyShareLinkBtn) {
+        copyShareLinkBtn.addEventListener('click', function() {
+            const shareLink = document.getElementById('shareLink');
+            if (shareLink) {
+                shareLink.select();
+                shareLink.setSelectionRange(0, 99999); // For mobile devices
+                
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(shareLink.value).then(() => {
+                        this.innerHTML = '<i class="bi bi-check"></i> Đã sao chép';
+                        setTimeout(() => {
+                            this.innerHTML = '<i class="bi bi-clipboard"></i> Sao chép link';
+                        }, 2000);
+                    });
+                } else {
+                    document.execCommand('copy');
+                    this.innerHTML = '<i class="bi bi-check"></i> Đã sao chép';
+                    setTimeout(() => {
+                        this.innerHTML = '<i class="bi bi-clipboard"></i> Sao chép link';
+                    }, 2000);
+                }
+            }
+        });
+    }
+    
     // Search functionality
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
