@@ -55,7 +55,7 @@ $shareStats = $db->fetch(
 
 $popularShares = $db->fetchAll(
     "SELECT s.share_token, s.accessed_count, s.created_at, u.username,
-            JSON_LENGTH(s.mail_ids) as mail_count
+            LENGTH(s.mail_ids) - LENGTH(REPLACE(s.mail_ids, ',', '')) + 1 as mail_count
      FROM shared_mails s
      JOIN users u ON s.created_by = u.id
      ORDER BY s.accessed_count DESC

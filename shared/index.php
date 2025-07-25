@@ -193,44 +193,12 @@ $pageTitle = 'Mail được chia sẻ';
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="/assets/js/main.js"></script>
     
     <script>
-    // Copy to clipboard functionality
-    $('.btn-copy').on('click', function() {
-        const target = $(this).data('target');
-        const text = $(target).text();
-        
-        navigator.clipboard.writeText(text).then(function() {
-            // Show success feedback
-            const btn = $(this);
-            const originalText = btn.html();
-            btn.html('<i class="bi bi-check"></i>');
-            btn.addClass('btn-success').removeClass('btn-outline-primary');
-            
-            setTimeout(function() {
-                btn.html(originalText);
-                btn.removeClass('btn-success').addClass('btn-outline-primary');
-            }, 2000);
-        }.bind(this)).catch(function() {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            
-            const btn = $(this);
-            const originalText = btn.html();
-            btn.html('<i class="bi bi-check"></i>');
-            btn.addClass('btn-success').removeClass('btn-outline-primary');
-            
-            setTimeout(function() {
-                btn.html(originalText);
-                btn.removeClass('btn-success').addClass('btn-outline-primary');
-            }, 2000);
-        }.bind(this));
+    // Initialize copy functionality on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Copy functionality is already handled by main.js
     });
     </script>
 </body>
