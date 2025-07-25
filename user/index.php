@@ -272,19 +272,25 @@ include '../includes/header.php';
 </div>
 
 <script>
-$(document).ready(function() {
-    $('#app_name').on('change', function() {
-        const customInput = $('#custom_app_group');
-        const customField = $('#custom_app');
-        
-        if ($(this).val() === 'other') {
-            customInput.show();
-            customField.prop('required', true);
-        } else {
-            customInput.hide();
-            customField.prop('required', false).val('');
-        }
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    const appSelect = document.getElementById('app_name');
+    const customInput = document.getElementById('custom_app_group');
+    const customField = document.getElementById('custom_app');
+    
+    if (appSelect && customInput) {
+        appSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                customInput.style.display = 'block';
+                if (customField) customField.required = true;
+            } else {
+                customInput.style.display = 'none';
+                if (customField) {
+                    customField.required = false;
+                    customField.value = '';
+                }
+            }
+        });
+    }
 });
 </script>
 

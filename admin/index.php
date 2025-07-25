@@ -142,15 +142,42 @@ include '../includes/header.php';
 
 <script>
 // Create app distribution chart
-const appData = <?= json_encode(array_column($mailsByApp, 'count')) ?>;
-const appLabels = <?= json_encode(array_column($mailsByApp, 'app_name')) ?>;
+document.addEventListener('DOMContentLoaded', function() {
+    const appData = <?= json_encode(array_column($mailsByApp, 'count')) ?>;
+    const appLabels = <?= json_encode(array_column($mailsByApp, 'app_name')) ?>;
 
-if (appData.length > 0) {
-    createPieChart('appChart', appData, appLabels);
-} else {
-    document.getElementById('appChart').parentElement.innerHTML = 
-        '<p class="text-muted text-center py-3">Chưa có dữ liệu</p>';
-}
+    if (appData.length > 0) {
+        // Wait for charts.js to load
+        if (typeof createPieChart === 'function') {
+            createPieChart('appChart', appData, appLabels);
+        } else {
+            // Fallback simple display
+            const canvas = document.getElementById('appChart');
+            if (canvas) {
+                canvas.parentElement.innerHTML = `
+                    <div class="text-center py-4">
+                        <h6>Phân bổ Mail theo ứng dụng</h6>
+                        <div class="row">
+                            ${appLabels.map((label, index) => `
+                                <div class="col-6 mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span>${label}</span>
+                                        <span class="badge bg-primary">${appData[index]}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    } else {
+        const canvas = document.getElementById('appChart');
+        if (canvas) {
+            canvas.parentElement.innerHTML = '<p class="text-muted text-center py-3">Chưa có dữ liệu</p>';
+        }
+    }
+});
 </script>
 
 <?php include '../includes/footer.php'; ?>

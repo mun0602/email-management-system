@@ -1,208 +1,206 @@
-// Main JavaScript functions for Mail Management System
-$(document).ready(function() {
+// Main JavaScript functions for Mail Management System (Vanilla JS)
+document.addEventListener('DOMContentLoaded', function() {
     // Copy to clipboard functionality
-    $('.btn-copy').on('click', function() {
-        const target = $(this).data('target');
-        const text = $(target).text();
+    function setupCopyButtons() {
+        document.querySelectorAll('.btn-copy').forEach(button => {
+            button.addEventListener('click', function() {
+                const target = this.getAttribute('data-target');
+                const targetElement = document.querySelector(target);
+                if (!targetElement) return;
+                
+                const text = targetElement.textContent;
+                
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showCopySuccess(this);
+                    }).catch(() => {
+                        fallbackCopyToClipboard(text, this);
+                    });
+                } else {
+                    fallbackCopyToClipboard(text, this);
+                }
+            });
+        });
+    }
+    
+    function showCopySuccess(button) {
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check"></i> Đã sao chép';
+        button.classList.add('btn-success');
+        button.classList.remove('btn-outline-primary');
         
-        navigator.clipboard.writeText(text).then(function() {
-            // Show success feedback
-            const btn = $(this);
-            const originalText = btn.html();
-            btn.html('<i class="bi bi-check"></i> Đã sao chép');
-            btn.addClass('btn-success').removeClass('btn-outline-primary');
-            
-            setTimeout(function() {
-                btn.html(originalText);
-                btn.removeClass('btn-success').addClass('btn-outline-primary');
-            }, 2000);
-        }.bind(this));
-    });
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-primary');
+        }, 2000);
+    }
+    
+    function fallbackCopyToClipboard(text, button) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showCopySuccess(button);
+        } catch (err) {
+            console.error('Fallback: Oops, unable to copy', err);
+        }
+        document.body.removeChild(textArea);
+    }
     
     // App selection change handler
-    $('#app_select').on('change', function() {
-        const customInput = $('#custom_app_input');
-        if ($(this).val() === 'other') {
-            customInput.show().prop('required', true);
-        } else {
-            customInput.hide().prop('required', false).val('');
-        }
-    });
+    const appSelect = document.getElementById('app_name');
+    const customAppGroup = document.getElementById('custom_app_group');
+    const customAppInput = document.getElementById('custom_app');
+    
+    if (appSelect && customAppGroup) {
+        appSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                customAppGroup.style.display = 'block';
+                if (customAppInput) customAppInput.required = true;
+            } else {
+                customAppGroup.style.display = 'none';
+                if (customAppInput) {
+                    customAppInput.required = false;
+                    customAppInput.value = '';
+                }
+            }
+        });
+    }
     
     // Bulk mail textarea auto-resize
-    $('#bulk_mails').on('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-    });
+    const bulkMailsTextarea = document.getElementById('bulk_mails');
+    if (bulkMailsTextarea) {
+        bulkMailsTextarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+    }
     
-    // Select all checkboxes
-    $('#selectAll').on('change', function() {
-        $('.mail-checkbox').prop('checked', $(this).prop('checked'));
-        updateShareButtonState();
-    });
+    // Select all checkboxes functionality
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const mailCheckboxes = document.querySelectorAll('.mail-checkbox');
+            mailCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateShareButtonState();
+        });
+    }
     
     // Individual checkbox change
-    $('.mail-checkbox').on('change', function() {
-        updateShareButtonState();
-        updateSelectAllState();
+    document.querySelectorAll('.mail-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateShareButtonState();
+            updateSelectAllState();
+        });
     });
     
     // Update share button state
     function updateShareButtonState() {
-        const checkedBoxes = $('.mail-checkbox:checked').length;
-        $('#shareSelected').prop('disabled', checkedBoxes === 0);
-        $('#shareSelected .badge').text(checkedBoxes);
+        const checkedBoxes = document.querySelectorAll('.mail-checkbox:checked').length;
+        const shareButton = document.getElementById('shareSelected');
+        if (shareButton) {
+            shareButton.disabled = checkedBoxes === 0;
+            const badge = shareButton.querySelector('.badge');
+            if (badge) badge.textContent = checkedBoxes;
+        }
     }
     
     // Update select all checkbox state
     function updateSelectAllState() {
-        const totalBoxes = $('.mail-checkbox').length;
-        const checkedBoxes = $('.mail-checkbox:checked').length;
-        $('#selectAll').prop('checked', totalBoxes === checkedBoxes);
+        const totalBoxes = document.querySelectorAll('.mail-checkbox').length;
+        const checkedBoxes = document.querySelectorAll('.mail-checkbox:checked').length;
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) {
+            selectAll.checked = totalBoxes === checkedBoxes;
+        }
     }
     
-    // Share modal form submission
-    $('#shareForm').on('submit', function(e) {
-        e.preventDefault();
-        
-        const selectedMails = [];
-        $('.mail-checkbox:checked').each(function() {
-            selectedMails.push($(this).val());
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function() {
+            const value = this.value.toLowerCase();
+            const searchableRows = document.querySelectorAll('.searchable-row');
+            searchableRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.indexOf(value) > -1 ? '' : 'none';
+            });
         });
-        
-        if (selectedMails.length === 0) {
-            alert('Vui lòng chọn ít nhất một mail để chia sẻ!');
-            return;
-        }
-        
-        const formData = {
-            mail_ids: selectedMails,
-            password: $('#share_password').val(),
-            action: 'create_share'
-        };
-        
-        $.post('/shared/create.php', formData, function(response) {
-            if (response.success) {
-                $('#shareLink').val(response.share_url);
-                $('#shareLinkModal').modal('show');
-                $('#shareModal').modal('hide');
-            } else {
-                alert('Có lỗi xảy ra: ' + response.message);
-            }
-        }, 'json');
-    });
-    
-    // Copy share link
-    $('#copyShareLink').on('click', function() {
-        const shareLink = $('#shareLink')[0];
-        shareLink.select();
-        document.execCommand('copy');
-        
-        $(this).html('<i class="bi bi-check"></i> Đã sao chép');
-        setTimeout(() => {
-            $(this).html('<i class="bi bi-clipboard"></i> Sao chép link');
-        }, 2000);
-    });
-    
-    // Search and filter functionality
-    $('#searchInput').on('keyup', function() {
-        const value = $(this).val().toLowerCase();
-        $('.searchable-row').filter(function() {
-            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
-        });
-    });
+    }
     
     // Date range filtering
-    $('#dateFrom, #dateTo').on('change', function() {
-        filterByDate();
-    });
+    const dateFrom = document.getElementById('dateFrom');
+    const dateTo = document.getElementById('dateTo');
+    
+    if (dateFrom || dateTo) {
+        [dateFrom, dateTo].forEach(input => {
+            if (input) {
+                input.addEventListener('change', filterByDate);
+            }
+        });
+    }
     
     function filterByDate() {
-        const fromDate = $('#dateFrom').val();
-        const toDate = $('#dateTo').val();
+        const fromValue = dateFrom ? dateFrom.value : '';
+        const toValue = dateTo ? dateTo.value : '';
         
-        if (!fromDate && !toDate) {
-            $('.searchable-row').show();
+        if (!fromValue && !toValue) {
+            document.querySelectorAll('.searchable-row').forEach(row => {
+                row.style.display = '';
+            });
             return;
         }
         
-        $('.searchable-row').each(function() {
-            const rowDate = $(this).data('date');
+        document.querySelectorAll('.searchable-row').forEach(row => {
+            const rowDate = row.getAttribute('data-date');
             let show = true;
             
-            if (fromDate && rowDate < fromDate) show = false;
-            if (toDate && rowDate > toDate) show = false;
+            if (fromValue && rowDate < fromValue) show = false;
+            if (toValue && rowDate > toValue) show = false;
             
-            $(this).toggle(show);
+            row.style.display = show ? '' : 'none';
         });
     }
     
     // Confirmation dialogs
-    $('.btn-delete').on('click', function(e) {
-        if (!confirm('Bạn có chắc chắn muốn xóa không?')) {
-            e.preventDefault();
-        }
+    document.querySelectorAll('.btn-delete').forEach(button => {
+        button.addEventListener('click', function(e) {
+            if (!confirm('Bạn có chắc chắn muốn xóa không?')) {
+                e.preventDefault();
+            }
+        });
     });
     
     // Auto-hide alerts
-    $('.alert').delay(5000).fadeOut();
+    document.querySelectorAll('.alert').forEach(alert => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            }, 500);
+        }, 5000);
+    });
     
-    // Initialize tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
+    // Initialize tooltips (Bootstrap 5)
+    if (typeof bootstrap !== 'undefined') {
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => 
+            new bootstrap.Tooltip(tooltipTriggerEl)
+        );
+    }
+    
+    // Initialize copy buttons
+    setupCopyButtons();
+    
+    // Initialize other functionality
+    updateShareButtonState();
 });
-
-// Chart creation helpers
-function createPieChart(canvasId, data, labels) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    return new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: [
-                    '#007bff', '#28a745', '#ffc107', '#dc3545', 
-                    '#6f42c1', '#fd7e14', '#20c997', '#6c757d'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
-            }
-        }
-    });
-}
-
-function createBarChart(canvasId, data, labels) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    return new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Số lượng mail',
-                data: data,
-                backgroundColor: '#007bff',
-                borderColor: '#0056b3',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-}
