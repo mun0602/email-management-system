@@ -19,12 +19,12 @@ $where_conditions = ["h.user_id = ?"];
 $params = [$user['id']];
 
 if (!empty($search)) {
-    $where_conditions[] = "m.email LIKE ?";
+    $where_conditions[] = "e.email LIKE ?";
     $params[] = "%$search%";
 }
 
 if (!empty($app_filter)) {
-    $where_conditions[] = "h.app_name = ?";
+    $where_conditions[] = "a.name = ?";
     $params[] = $app_filter;
 }
 
@@ -43,17 +43,45 @@ $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
 // Get total count
 $total_history = $db->fetch(
     "SELECT COUNT(*) as count 
-     FROM mail_history h 
-     JOIN mails m ON h.mail_id = m.id 
+     FROM email_history h 
+     JOIN emails e ON h.email_id = e.id 
+     LEFT JOIN apps a ON h.app_id = a.id
      $where_clause",
     $params
 )['count'];
 
+// Get user statistics
+$totalUsed = getUserMailCount($user['id']);
+$userAppsCount = count($userApps);
+
+// Get user's current limits summary
+$userLimits = $db->fetchAll(
+    "SELECT ul.*, a.name as app_name 
+     FROM user_limits ul 
+     JOIN apps a ON ul.app_id = a.id 
+     WHERE ul.user_id = ?",
+    [$user['id']]
+);
+
+$totalRemaining = 0;
+foreach ($userLimits as $limit) {
+    // Reset daily usage if new day
+    if ($limit['last_reset'] !== date('Y-m-d')) {
+        $db->query(
+            "UPDATE user_limits SET used_today = 0, last_reset = DATE('now') WHERE user_id = ? AND app_id = ?",
+            [$user['id'], $limit['app_id']]
+        );
+        $limit['used_today'] = 0;
+    }
+    $totalRemaining += max(0, $limit['daily_limit'] - $limit['used_today']);
+}
+
 // Get history data
 $history = $db->fetchAll(
-    "SELECT h.*, m.email, m.password 
-     FROM mail_history h 
-     JOIN mails m ON h.mail_id = m.id 
+    "SELECT h.*, e.email, e.password, a.name as app_name 
+     FROM email_history h 
+     JOIN emails e ON h.email_id = e.id 
+     LEFT JOIN apps a ON h.app_id = a.id
      $where_clause 
      ORDER BY h.taken_at DESC 
      LIMIT $limit OFFSET $offset",
@@ -64,26 +92,28 @@ $total_pages = ceil($total_history / $limit);
 
 // Get apps used by user for filter
 $userApps = $db->fetchAll(
-    "SELECT DISTINCT app_name 
-     FROM mail_history 
-     WHERE user_id = ? 
-     ORDER BY app_name",
+    "SELECT DISTINCT a.name as app_name 
+     FROM email_history h
+     JOIN apps a ON h.app_id = a.id 
+     WHERE h.user_id = ? 
+     ORDER BY a.name",
     [$user['id']]
 );
 
 // Get statistics for charts
 $appStats = $db->fetchAll(
-    "SELECT app_name, COUNT(*) as count 
-     FROM mail_history 
-     WHERE user_id = ? 
-     GROUP BY app_name 
+    "SELECT a.name as app_name, COUNT(*) as count 
+     FROM email_history h
+     JOIN apps a ON h.app_id = a.id
+     WHERE h.user_id = ? 
+     GROUP BY a.name 
      ORDER BY count DESC",
     [$user['id']]
 );
 
 $monthlyStats = $db->fetchAll(
     "SELECT strftime('%Y-%m', taken_at) as month, COUNT(*) as count 
-     FROM mail_history 
+     FROM email_history 
      WHERE user_id = ? 
      GROUP BY month 
      ORDER BY month DESC 
@@ -104,7 +134,7 @@ include '../includes/header.php';
     <div class="col-md-4">
         <div class="card stats-card">
             <div class="card-body text-center">
-                <div class="stats-number"><?= getUserMailCount($user['id']) ?></div>
+                <div class="stats-number"><?= $totalUsed ?></div>
                 <div class="stats-label">Tổng mail đã lấy</div>
             </div>
         </div>
@@ -112,7 +142,7 @@ include '../includes/header.php';
     <div class="col-md-4">
         <div class="card stats-card" style="background: linear-gradient(135deg, #28a745, #20c997);">
             <div class="card-body text-center">
-                <div class="stats-number"><?= count($userApps) ?></div>
+                <div class="stats-number"><?= $userAppsCount ?></div>
                 <div class="stats-label">Ứng dụng đã dùng</div>
             </div>
         </div>
@@ -120,8 +150,8 @@ include '../includes/header.php';
     <div class="col-md-4">
         <div class="card stats-card" style="background: linear-gradient(135deg, #ffc107, #fd7e14);">
             <div class="card-body text-center">
-                <div class="stats-number"><?= $user['mail_limit'] - getUserMailCount($user['id']) ?></div>
-                <div class="stats-label">Mail còn lại</div>
+                <div class="stats-number"><?= $totalRemaining ?></div>
+                <div class="stats-label">Mail còn lại hôm nay</div>
             </div>
         </div>
     </div>
@@ -230,6 +260,7 @@ include '../includes/header.php';
                         <?php foreach ($history as $item): ?>
                         <tr class="searchable-row" data-date="<?= date('Y-m-d', strtotime($item['taken_at'])) ?>">
                             <td>
+                                <input type="checkbox" class="mail-checkbox me-2" value="<?= $item['email_id'] ?>">
                                 <code id="email-<?= $item['id'] ?>"><?= htmlspecialchars($item['email']) ?></code>
                             </td>
                             <td>
@@ -367,12 +398,81 @@ if (monthlyData.length > 0) {
 
 // Add checkboxes to table rows
 $(document).ready(function() {
-    // Add checkboxes to each row
-    $('tbody tr').each(function() {
-        if ($(this).find('td').length > 1) { // Skip "no data" row
-            const mailId = $(this).find('code').first().attr('id').replace('email-', '');
-            $(this).find('td:first').prepend('<input type="checkbox" class="mail-checkbox me-2" value="' + mailId + '">');
+    // Select all functionality
+    $('#selectAll').on('change', function() {
+        $('.mail-checkbox').prop('checked', $(this).prop('checked'));
+        updateShareButtonState();
+    });
+    
+    // Individual checkbox change
+    $('.mail-checkbox').on('change', function() {
+        updateShareButtonState();
+        updateSelectAllState();
+    });
+    
+    // Update share button state
+    function updateShareButtonState() {
+        const checkedBoxes = $('.mail-checkbox:checked').length;
+        $('#shareSelected').prop('disabled', checkedBoxes === 0);
+        $('#shareSelected .badge').text(checkedBoxes);
+    }
+    
+    // Update select all checkbox state
+    function updateSelectAllState() {
+        const totalBoxes = $('.mail-checkbox').length;
+        const checkedBoxes = $('.mail-checkbox:checked').length;
+        $('#selectAll').prop('checked', totalBoxes === checkedBoxes && totalBoxes > 0);
+    }
+    
+    // Share form submission
+    $('#shareForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const selectedEmails = [];
+        $('.mail-checkbox:checked').each(function() {
+            selectedEmails.push($(this).val());
+        });
+        
+        if (selectedEmails.length === 0) {
+            alert('Vui lòng chọn ít nhất một email để chia sẻ!');
+            return;
         }
+        
+        const formData = {
+            email_ids: selectedEmails,
+            password: $('#share_password').val(),
+            action: 'create_share'
+        };
+        
+        $.post('/api/sharing.php', JSON.stringify(formData), function(response) {
+            if (response.success) {
+                $('#shareLink').val(response.share_url);
+                $('#shareLinkModal').modal('show');
+                $('#shareModal').modal('hide');
+                
+                // Reset form
+                $('#share_password').val('');
+                $('.mail-checkbox').prop('checked', false);
+                $('#selectAll').prop('checked', false);
+                updateShareButtonState();
+            } else {
+                alert('Có lỗi xảy ra: ' + response.message);
+            }
+        }, 'json').fail(function() {
+            alert('Có lỗi xảy ra khi tạo link chia sẻ');
+        });
+    });
+    
+    // Copy share link
+    $('#copyShareLink').on('click', function() {
+        const shareLink = $('#shareLink')[0];
+        shareLink.select();
+        document.execCommand('copy');
+        
+        $(this).html('<i class="bi bi-check"></i> Đã sao chép');
+        setTimeout(() => {
+            $(this).html('<i class="bi bi-clipboard"></i> Sao chép link');
+        }, 2000);
     });
 });
 </script>
