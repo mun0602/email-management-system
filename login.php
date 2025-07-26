@@ -3,24 +3,29 @@ require_once 'includes/functions.php';
 
 // Redirect if already logged in
 if (isLoggedIn()) {
-    header('Location: ' . (isAdmin() ? '/admin/' : '/user/'));
+    header('Location: ' . (isAdmin() ? 'http://localhost:8000/admin/' : 'http://localhost:8000/user/'));
     exit;
 }
 
 $error = '';
+$debug = '';
 
 if ($_POST) {
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
     
+    $debug = "POST received - Username: '$username', Password length: " . strlen($password);
+    
     if (empty($username) || empty($password)) {
         $error = 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!';
     } else {
         if (login($username, $password)) {
-            header('Location: ' . (isAdmin() ? '/admin/' : '/user/'));
+            $debug .= ' - Login successful';
+            header('Location: ' . (isAdmin() ? 'http://localhost:8000/admin/' : 'http://localhost:8000/user/'));
             exit;
         } else {
             $error = 'Tên đăng nhập hoặc mật khẩu không đúng!';
+            $debug .= ' - Login failed';
         }
     }
 }
@@ -48,6 +53,12 @@ $pageTitle = getPageTitle('login');
             </div>
             
             <div class="login-body">
+                <?php if ($debug): ?>
+                <div class="alert alert-info">
+                    <small>Debug: <?= htmlspecialchars($debug) ?></small>
+                </div>
+                <?php endif; ?>
+                
                 <?php if ($error): ?>
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle"></i>

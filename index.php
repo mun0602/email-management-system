@@ -2,15 +2,15 @@
 require_once 'includes/functions.php';
 
 if (!isLoggedIn()) {
-    header('Location: /login.php');
+    header('Location: http://localhost:8000/login.php');
     exit;
 }
 
 // Redirect based on role
 if (isAdmin()) {
-    header('Location: /admin/');
+    header('Location: http://localhost:8000/admin/');
 } else {
-    header('Location: /user/');
+    header('Location: http://localhost:8000/user/');
 }
 exit;
 ?>

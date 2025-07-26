@@ -37,7 +37,6 @@ function login($username, $password) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['role'] = $user['role'];
-        $_SESSION['mail_limit'] = $user['mail_limit'];
         return true;
     }
     return false;
