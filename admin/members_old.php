@@ -97,23 +97,38 @@ if ($_POST) {
         }
     }
 }
+                    );
+                }
+                $message = '<div class="alert alert-success">Cập nhật thành viên thành công!</div>';
+            } catch (PDOException $e) {
+                $message = '<div class="alert alert-danger">Tên đăng nhập đã tồn tại!</div>';
+            }
+        }
+    }
+    
+    elseif ($action === 'delete_member') {
+        $user_id = (int)($_POST['user_id'] ?? 0);
+        
+        if ($user_id > 0) {
+            $db->query("DELETE FROM users WHERE id = ? AND role = 'user'", [$user_id]);
+            $message = '<div class="alert alert-success">Xóa thành viên thành công!</div>';
+        }
+    }
+}
 
-// Get all users with their statistics
+// Get all users (except admins)
 $users = $db->fetchAll(
     "SELECT u.*, 
-            COUNT(h.id) as total_emails_taken,
+            COUNT(h.id) as mail_count,
             MAX(h.taken_at) as last_activity
      FROM users u 
-     LEFT JOIN email_history h ON u.id = h.user_id 
+     LEFT JOIN mail_history h ON u.id = h.user_id 
      WHERE u.role = 'user' 
      GROUP BY u.id 
      ORDER BY u.created_at DESC"
 );
 
-// Get apps for limits management
-$apps = getAllApps();
-
-$pageTitle = 'Quản lý thành viên';
+$pageTitle = getPageTitle('admin_members');
 include '../includes/header.php';
 ?>
 
@@ -132,9 +147,9 @@ include '../includes/header.php';
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>Thành viên</th>
-                        <th>Tổng email đã lấy</th>
-                        <th>Hạn mức hôm nay</th>
+                        <th>Tên đăng nhập</th>
+                        <th>Giới hạn Mail</th>
+                        <th>Đã sử dụng</th>
                         <th>Hoạt động cuối</th>
                         <th>Ngày tạo</th>
                         <th>Thao tác</th>
@@ -149,35 +164,17 @@ include '../includes/header.php';
                     </tr>
                     <?php else: ?>
                         <?php foreach ($users as $user): ?>
-                        <?php
-                            // Get user's today limits
-                            $userLimits = $db->fetchAll(
-                                "SELECT ul.*, a.name as app_name 
-                                 FROM user_limits ul 
-                                 JOIN apps a ON ul.app_id = a.id 
-                                 WHERE ul.user_id = ?",
-                                [$user['id']]
-                            );
-                            $totalRemaining = array_sum(array_map(function($l) { 
-                                return max(0, $l['daily_limit'] - $l['used_today']); 
-                            }, $userLimits));
-                            $totalUsedToday = array_sum(array_column($userLimits, 'used_today'));
-                        ?>
                         <tr>
                             <td>
-                                <div>
-                                    <strong><?= htmlspecialchars($user['username']) ?></strong>
-                                    <?php if ($user['full_name']): ?>
-                                        <br><small class="text-muted"><?= htmlspecialchars($user['full_name']) ?></small>
-                                    <?php endif; ?>
-                                </div>
+                                <strong><?= htmlspecialchars($user['username']) ?></strong>
                             </td>
                             <td>
-                                <span class="badge bg-info"><?= $user['total_emails_taken'] ?></span>
+                                <span class="badge bg-primary"><?= $user['mail_limit'] ?> mail</span>
                             </td>
                             <td>
-                                <span class="badge bg-success"><?= $totalRemaining ?> còn lại</span>
-                                <span class="badge bg-warning"><?= $totalUsedToday ?> đã dùng</span>
+                                <span class="badge <?= $user['mail_count'] >= $user['mail_limit'] ? 'bg-danger' : 'bg-success' ?>">
+                                    <?= $user['mail_count'] ?> mail
+                                </span>
                             </td>
                             <td>
                                 <?= $user['last_activity'] ? formatDate($user['last_activity']) : '<span class="text-muted">Chưa có</span>' ?>
@@ -185,10 +182,10 @@ include '../includes/header.php';
                             <td><?= formatDate($user['created_at']) ?></td>
                             <td>
                                 <button type="button" class="btn btn-sm btn-outline-primary me-1" 
-                                        onclick="editLimits(<?= $user['id'] ?>, '<?= htmlspecialchars($user['username']) ?>')">
-                                    <i class="bi bi-gear"></i> Hạn mức
+                                        onclick="editMember(<?= htmlspecialchars(json_encode($user)) ?>)">
+                                    <i class="bi bi-pencil"></i>
                                 </button>
-                                <form method="POST" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa thành viên này? Lịch sử email sẽ được giữ lại.')">
+                                <form method="POST" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa thành viên này?')">
                                     <input type="hidden" name="action" value="delete_member">
                                     <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -228,13 +225,9 @@ include '../includes/header.php';
                     </div>
                     
                     <div class="mb-3">
-                        <label for="full_name" class="form-label">Họ tên (tùy chọn)</label>
-                        <input type="text" class="form-control" id="full_name" name="full_name">
-                    </div>
-                    
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i>
-                        Thành viên mới sẽ được thiết lập hạn mức mặc định là 25 email/ngày cho mỗi ứng dụng.
+                        <label for="mail_limit" class="form-label">Giới hạn Mail</label>
+                        <input type="number" class="form-control" id="mail_limit" name="mail_limit" value="10" min="1" required>
+                        <div class="form-text">Số lượng mail tối đa mà thành viên có thể lấy</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -246,31 +239,38 @@ include '../includes/header.php';
     </div>
 </div>
 
-<!-- Edit Limits Modal -->
-<div class="modal fade" id="editLimitsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+<!-- Edit Member Modal -->
+<div class="modal fade" id="editMemberModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Quản lý hạn mức</h5>
+                <h5 class="modal-title">Chỉnh sửa thành viên</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST">
                 <div class="modal-body">
-                    <input type="hidden" name="action" value="update_limits">
-                    <input type="hidden" name="user_id" id="limits_user_id">
+                    <input type="hidden" name="action" value="update_member">
+                    <input type="hidden" name="user_id" id="edit_user_id">
                     
-                    <h6 id="limits_username"></h6>
                     <div class="mb-3">
-                        <small class="text-muted">Thiết lập hạn mức email hàng ngày cho từng ứng dụng</small>
+                        <label for="edit_username" class="form-label">Tên đăng nhập</label>
+                        <input type="text" class="form-control" id="edit_username" name="username" required>
                     </div>
                     
-                    <div id="limits_container">
-                        <!-- Dynamic content will be loaded here -->
+                    <div class="mb-3">
+                        <label for="edit_password" class="form-label">Mật khẩu mới</label>
+                        <input type="password" class="form-control" id="edit_password" name="password">
+                        <div class="form-text">Để trống nếu không muốn thay đổi mật khẩu</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_mail_limit" class="form-label">Giới hạn Mail</label>
+                        <input type="number" class="form-control" id="edit_mail_limit" name="mail_limit" min="1" required>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-primary">Cập nhật hạn mức</button>
+                    <button type="submit" class="btn btn-primary">Cập nhật</button>
                 </div>
             </form>
         </div>
@@ -278,45 +278,13 @@ include '../includes/header.php';
 </div>
 
 <script>
-function editLimits(userId, username) {
-    document.getElementById('limits_user_id').value = userId;
-    document.getElementById('limits_username').textContent = 'Hạn mức cho: ' + username;
+function editMember(user) {
+    document.getElementById('edit_user_id').value = user.id;
+    document.getElementById('edit_username').value = user.username;
+    document.getElementById('edit_password').value = '';
+    document.getElementById('edit_mail_limit').value = user.mail_limit;
     
-    // Fetch user limits via AJAX
-    fetch('/api/users.php?action=get_limits&user_id=' + userId)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                let html = '';
-                data.limits.forEach(limit => {
-                    html += `
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">${limit.app_name}</label>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="input-group">
-                                    <input type="number" class="form-control" 
-                                           name="limits[${limit.app_id}]" 
-                                           value="${limit.daily_limit}" 
-                                           min="0" max="999">
-                                    <span class="input-group-text">email/ngày</span>
-                                </div>
-                                <small class="text-muted">Đã dùng hôm nay: ${limit.used_today}</small>
-                            </div>
-                        </div>
-                    `;
-                });
-                document.getElementById('limits_container').innerHTML = html;
-                new bootstrap.Modal(document.getElementById('editLimitsModal')).show();
-            } else {
-                alert('Không thể tải dữ liệu: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Có lỗi xảy ra khi tải dữ liệu');
-        });
+    new bootstrap.Modal(document.getElementById('editMemberModal')).show();
 }
 </script>
 

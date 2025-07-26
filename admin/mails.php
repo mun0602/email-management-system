@@ -17,7 +17,7 @@ if ($_POST) {
             $message = '<div class="alert alert-danger">Vui lòng nhập đầy đủ email và mật khẩu!</div>';
         } else {
             try {
-                $db->query("INSERT INTO mails (email, password) VALUES (?, ?)", [$email, $password]);
+                $db->query("INSERT INTO emails (email, password) VALUES (?, ?)", [$email, $password]);
                 $message = '<div class="alert alert-success">Thêm mail thành công!</div>';
             } catch (PDOException $e) {
                 $message = '<div class="alert alert-danger">Email đã tồn tại!</div>';
@@ -54,7 +54,7 @@ if ($_POST) {
                 }
                 
                 try {
-                    $db->query("INSERT INTO mails (email, password) VALUES (?, ?)", [$email, $password]);
+                    $db->query("INSERT INTO emails (email, password) VALUES (?, ?)", [$email, $password]);
                     $added++;
                 } catch (PDOException $e) {
                     $errors[] = "Email đã tồn tại: " . htmlspecialchars($email);
@@ -72,7 +72,7 @@ if ($_POST) {
         $mail_id = (int)($_POST['mail_id'] ?? 0);
         
         if ($mail_id > 0) {
-            $db->query("DELETE FROM mails WHERE id = ?", [$mail_id]);
+            $db->query("DELETE FROM emails WHERE id = ?", [$mail_id]);
             $message = '<div class="alert alert-success">Xóa mail thành công!</div>';
         }
     }
@@ -96,24 +96,31 @@ if (!empty($search)) {
 }
 
 if ($status_filter !== '') {
-    $where_conditions[] = "status = ?";
-    $params[] = $status_filter;
+    if ($status_filter === 'used') {
+        $where_conditions[] = "is_used = 1";
+    } else {
+        $where_conditions[] = "is_used = 0";
+    }
 }
 
 $where_clause = empty($where_conditions) ? '' : 'WHERE ' . implode(' AND ', $where_conditions);
 
 $total_mails = $db->fetch(
-    "SELECT COUNT(*) as count FROM mails $where_clause",
+    "SELECT COUNT(*) as count FROM emails $where_clause",
     $params
 )['count'];
 
 $mails = $db->fetchAll(
-    "SELECT m.*, h.taken_at, u.username 
-     FROM mails m 
-     LEFT JOIN mail_history h ON m.id = h.mail_id 
-     LEFT JOIN users u ON h.user_id = u.id 
+    "SELECT e.*, 
+            CASE WHEN e.is_used = 1 THEN 'used' ELSE 'available' END as status,
+            e.used_at as taken_at, 
+            u.username,
+            a.name as app_name
+     FROM emails e 
+     LEFT JOIN users u ON e.used_by = u.id 
+     LEFT JOIN apps a ON e.app_id = a.id
      $where_clause 
-     ORDER BY m.created_at DESC 
+     ORDER BY e.created_at DESC 
      LIMIT $limit OFFSET $offset",
     $params
 );
@@ -247,6 +254,9 @@ include '../includes/header.php';
                                 <span class="badge <?= $mail['status'] === 'used' ? 'bg-warning' : 'bg-success' ?>">
                                     <?= $mail['status'] === 'used' ? 'Đã sử dụng' : 'Khả dụng' ?>
                                 </span>
+                                <?php if ($mail['app_name']): ?>
+                                    <br><small class="text-muted">App: <?= htmlspecialchars($mail['app_name']) ?></small>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <?= $mail['username'] ? htmlspecialchars($mail['username']) : '<span class="text-muted">-</span>' ?>
