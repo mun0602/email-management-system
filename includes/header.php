@@ -44,6 +44,9 @@
                             <li><a class="dropdown-item" href="/admin/mails.php">
                                 <i class="bi bi-envelope-plus"></i> Quản lý Mail
                             </a></li>
+                            <li><a class="dropdown-item" href="/admin/apps.php">
+                                <i class="bi bi-grid-3x3-gap"></i> Quản lý ứng dụng
+                            </a></li>
                             <li><a class="dropdown-item" href="/admin/statistics.php">
                                 <i class="bi bi-graph-up"></i> Thống kê
                             </a></li>

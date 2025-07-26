@@ -35,8 +35,8 @@ function generateShareToken() {
 function getMailStats() {
     $db = new Database();
     
-    $totalMails = $db->fetch("SELECT COUNT(*) as count FROM mails")['count'];
-    $usedMails = $db->fetch("SELECT COUNT(*) as count FROM mails WHERE status = 'used'")['count'];
+    $totalMails = $db->fetch("SELECT COUNT(*) as count FROM emails")['count'];
+    $usedMails = $db->fetch("SELECT COUNT(*) as count FROM emails WHERE is_used = 1")['count'];
     $availableMails = $totalMails - $usedMails;
     
     return [
@@ -49,7 +49,7 @@ function getMailStats() {
 function getUserMailCount($userId) {
     $db = new Database();
     return $db->fetch(
-        "SELECT COUNT(*) as count FROM mail_history WHERE user_id = ?",
+        "SELECT COUNT(*) as count FROM email_history WHERE user_id = ?",
         [$userId]
     )['count'];
 }
@@ -57,10 +57,58 @@ function getUserMailCount($userId) {
 function getMailsByApp() {
     $db = new Database();
     return $db->fetchAll(
-        "SELECT app_name, COUNT(*) as count 
-         FROM mail_history 
-         GROUP BY app_name 
+        "SELECT a.name as app_name, COUNT(*) as count 
+         FROM email_history h 
+         JOIN apps a ON h.app_id = a.id
+         GROUP BY a.name 
          ORDER BY count DESC"
     );
+}
+
+function getUserLimitForApp($userId, $appId) {
+    $db = new Database();
+    $limit = $db->fetch(
+        "SELECT daily_limit, used_today, last_reset FROM user_limits 
+         WHERE user_id = ? AND app_id = ?",
+        [$userId, $appId]
+    );
+    
+    if (!$limit) {
+        // Create default limit if not exists
+        $db->query(
+            "INSERT INTO user_limits (user_id, app_id, daily_limit, used_today) VALUES (?, ?, ?, ?)",
+            [$userId, $appId, 25, 0]
+        );
+        return ['daily_limit' => 25, 'used_today' => 0, 'remaining' => 25];
+    }
+    
+    // Reset daily count if new day
+    if ($limit['last_reset'] !== date('Y-m-d')) {
+        $db->query(
+            "UPDATE user_limits SET used_today = 0, last_reset = DATE('now') WHERE user_id = ? AND app_id = ?",
+            [$userId, $appId]
+        );
+        $limit['used_today'] = 0;
+    }
+    
+    $limit['remaining'] = max(0, $limit['daily_limit'] - $limit['used_today']);
+    return $limit;
+}
+
+function getAllApps() {
+    $db = new Database();
+    return $db->fetchAll("SELECT * FROM apps ORDER BY name");
+}
+
+function getAvailableEmailsForApp($appId = null) {
+    $db = new Database();
+    if ($appId) {
+        return $db->fetch(
+            "SELECT COUNT(*) as count FROM emails WHERE is_used = 0 AND (app_id = ? OR app_id IS NULL)",
+            [$appId]
+        )['count'];
+    } else {
+        return $db->fetch("SELECT COUNT(*) as count FROM emails WHERE is_used = 0")['count'];
+    }
 }
 ?>
